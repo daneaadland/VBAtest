@@ -1,0 +1,230 @@
+Attribute VB_Name = "Module1"
+Sub auditData()
+    
+    Dim banner As Variant
+    Dim icims As Variant
+    Dim R As Integer
+    Dim C As Integer
+    
+    
+    'initialize unclean arrays
+    banner = Range("A3:BB3")
+    icims = Range("A5:BB5")
+    
+    Call cleanData(banner, icims)
+    
+    'Must overwrite the array with cleaned data
+    banner = Range("A3:BB3")
+    icims = Range("A5:BB5")
+    
+    'delete all this when done
+    Call cleanData(banner, icims)
+    
+    'Must overwrite the array with cleaned data
+    banner = Range("A3:BB3")
+    icims = Range("A5:BB5")
+    'to here
+    
+    
+    For R = 1 To UBound(banner, 1) ' First array dimension is rows.
+        For C = 1 To UBound(banner, 2) ' Second array dimension is columns.
+        If banner(R, C) <> icims(R, C) Then
+            With Cells(6, C)
+                .Value = "Error"
+                .Font.Color = RGB(255, 0, 0)
+            End With
+            'MsgBox "Error! " & vbNewLine & "Banner: " & banner(R, C) & vbNewLine & "iCIMS: " & icims(R, C)
+        Else
+            With Cells(6, C)
+                .Value = ChrW(&H2713)
+                .Font.Color = RGB(0, 255, 0)
+            End With
+        End If
+        Next C
+    Next R
+    MsgBox "Data Audited"
+    Debug.Print "Audit Ran Successfully: " & DateTime.Now
+    'follow link for understanding of how this works http://www.cpearson.com/excel/ArraysAndRanges.aspx
+End Sub
+
+Sub resetData()
+
+    ThisWorkbook.Worksheets("Sheet1").Rows(3).ClearContents
+    ThisWorkbook.Worksheets("Sheet1").Rows(5).ClearContents
+    ThisWorkbook.Worksheets("Sheet1").Rows(6).ClearContents
+    
+End Sub
+
+Sub cleanData(bannerToClean, icimsToClean)
+
+    'Banner and iCIMS ranges are passed
+    'after each call, each Range is reassigned to order to reflect any cleaned changes
+    banner = bannerToClean
+    icims = icimsToClean
+
+    'Eliminate null values from both ranges
+    Call cleanNullValues(banner, 3, 6) 'the 2nd argument allows the procedure to correct values in correct row, 3rd is to print in correct row
+    Call cleanNullValues(icims, 5, 7)
+    banner = bannerToClean
+    icims = icimsToClean
+    
+    'Convert all strings to uppercase
+    Call cleanToUpperCase(banner, 3, 6)
+    Call cleanToUpperCase(icims, 5, 7)
+    banner = bannerToClean
+    icims = icimsToClean
+
+    'Eliminate punctuation from strings
+    Call cleanReplacePunctuation(banner, 3, 6)
+    Call cleanReplacePunctuation(icims, 5, 7)
+    banner = bannerToClean
+    icims = icimsToClean
+    
+    'Convert addresses to appropriate abbreviations (STREET -> ST, AVEUE -> AVE)
+    Call cleanConvToAbbr(banner, 3, 6)
+    Call cleanConvToAbbr(icims, 5, 7)
+    banner = bannerToClean
+    icims = icimsToClean
+    
+    'Clean any combinations of withholdings equally 0 or null in either Banner or iCIMS
+    Call cleanWithholdings
+    
+    Call cleanAlignment(banner, 3, 6)
+    Call cleanAlignment(icims, 5, 7)
+
+      
+    'Then we take care of specific iCIMS values by calling other procedures to do the clearning
+
+
+End Sub
+
+Sub cleanNullValues(arrayToClean, rowToClean, rowToPrint)
+
+    Dim R As Integer
+    Dim C As Integer
+
+    For R = 1 To UBound(arrayToClean, 1)
+        For C = 1 To UBound(arrayToClean, 2)
+        If arrayToClean(R, C) = ("") Or arrayToClean(R, C) = (" ") Then
+            Cells(rowToClean, C) = " "
+        End If
+        Next C
+    Next R
+    
+End Sub
+
+Sub cleanToUpperCase(arrayToClean, rowToClean, rowToPrint)
+
+    Dim R As Integer
+    Dim C As Integer
+
+    For R = 1 To UBound(arrayToClean, 1)
+        For C = 1 To UBound(arrayToClean, 2)
+        'checks if cell type = string, and if so makes everything uppercase
+        If TypeName(arrayToClean(R, C)) = "String" Then
+            Cells(rowToClean, C) = UCase(Cells(rowToClean, C))
+            Cells(rowToClean, C).HorizontalAlignment = xlLeft
+        End If
+        Next C
+    Next R
+End Sub
+
+Sub cleanReplacePunctuation(arrayToClean, rowToClean, rowToPrint)
+
+    Dim R As Integer
+    Dim C As Integer
+    
+    'checks if cell contains a comma, period, or dash, and then takes it out
+
+    For R = 1 To UBound(arrayToClean, 1)
+        For C = 1 To UBound(arrayToClean, 2)
+        If InStr(1, arrayToClean(R, C), ".") > 0 Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), ".", "")
+        End If
+        If InStr(1, arrayToClean(R, C), ",") > 0 Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), ",", "")
+        End If
+        If InStr(1, arrayToClean(R, C), "-") > 0 Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "-", "")
+        End If
+        Next C
+    Next R
+
+End Sub
+
+Sub cleanConvToAbbr(arrayToClean, rowToClean, rowToPrint)
+
+    Dim R As Integer
+    Dim C As Integer
+    
+    'checks if see if any address suffix's can be abbreviated
+
+    For R = 1 To UBound(arrayToClean, 1)
+        For C = 1 To UBound(arrayToClean, 2)
+        If InStr(1, arrayToClean(R, C), "STREET") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "STREET", "ST")
+        End If
+        If InStr(1, arrayToClean(R, C), "AVENUE") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "AVENUE", "AVE")
+        End If
+        If InStr(1, arrayToClean(R, C), "BOULEVARD") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "BOULEVARD", "BLVD")
+        End If
+        If InStr(1, arrayToClean(R, C), "APARTMENT") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "APARTMENT", "APT")
+        End If
+        If InStr(1, arrayToClean(R, C), "COURT") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "COURT", "CT")
+        End If
+        If InStr(1, arrayToClean(R, C), "DRIVE") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "DRIVE", "DR")
+        If InStr(1, arrayToClean(R, C), "ROAD") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "ROAD", "RD")
+        End If
+        End If
+        If InStr(1, arrayToClean(R, C), "HIGHWAY") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "HIGHWAY", "HWY")
+        End If
+        If InStr(1, arrayToClean(R, C), "LANE") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "LANE", "LN")
+        End If
+        If InStr(1, arrayToClean(R, C), "PARKWAY") Then
+            Cells(rowToClean, C) = Replace(Cells(rowToClean, C), "PARKWAY", "PKWY")
+        End If
+        Next C
+    Next R
+
+End Sub
+
+Sub cleanWithholdings()
+
+
+    If Range("AQ3").Value = 0 And Range("AQ5").Value = " " Then
+        Range("AQ3").Value = 0
+        Range("AQ5").Value = 0
+    End If
+    
+    If Range("AQ3").Value = " " And Range("AQ5").Value = 0 Then
+        Range("AQ3").Value = 0
+        Range("AQ5").Value = 0
+    End If
+        
+End Sub
+
+Sub cleanAlignment(arrayToClean, rowToClean, rowToPrint)
+
+    Dim R As Integer
+    Dim C As Integer
+
+    For R = 1 To UBound(arrayToClean, 1)
+        For C = 1 To UBound(arrayToClean, 2)
+            With Cells(rowToClean, C)
+                .HorizontalAlignment = xlLeft
+                .Font.Name = "Arial"
+                .Font.Size = 8
+                .WrapText = False
+            End With
+        Next C
+    Next R
+        
+End Sub
